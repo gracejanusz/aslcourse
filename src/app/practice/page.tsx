@@ -1,7 +1,7 @@
 "use client";
+import { useState, useRef, useEffect } from "react";
 
 import Link from "next/link";
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +17,16 @@ export default function Practice() {
   const [practiceMode, setPracticeMode] = useState<"reference" | "blind">("reference");
   const [score, setScore] = useState(0);
   const [attempts, setAttempts] = useState(0);
+  // RL backend base URL
+  const API = "http://localhost:8000";
+
+  // --- RL state ---
+  const [masteryMap, setMasteryMap] = useState<Record<string, number>>(
+    Object.fromEntries("ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").map((l) => [l, 0]))
+  );
+  const [recentHistory, setRecentHistory] = useState<string[]>([]);
+  const stateKeyRef = useRef<string>("A:0");
+  const [lastAction, setLastAction] = useState<string>("practice_current");
 
   const handlePrediction = (letter: string, confidence: number) => {
     setCurrentPrediction(letter);
@@ -33,19 +43,96 @@ export default function Practice() {
     setConfidence(0);
   };
 
-  const checkAnswer = () => {
-    setAttempts(prev => prev + 1);
-    if (currentPrediction === targetLetter && confidence > 70) {
-      setScore(prev => prev + 1);
-      // Move to next letter
-      const nextLetter = String.fromCharCode(targetLetter.charCodeAt(0) + 1);
-      if (nextLetter <= 'Z') {
-        setTargetLetter(nextLetter);
-      } else {
-        // Completed all letters
-        setTargetLetter("A");
-      }
+  useEffect(() => {
+    getNextFromRL("A");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const rewardFromAttempt = (isCorrect: boolean) => (isCorrect ? 1 : -1);
+
+  async function getNextFromRL(currentLetter: string) {
+    const masteryLevel = masteryMap[currentLetter] || 0;
+
+    const res = await fetch(`${API}/alphabet/next`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        current_letter: currentLetter,
+        mastery_level: masteryLevel,
+        mastery_map: masteryMap,
+        recent_history: recentHistory.slice(-5),
+      }),
+    });
+    if (!res.ok) {
+      console.error("alphabet/next failed");
+      return;
     }
+    const data = await res.json();
+    stateKeyRef.current = data.state_key;
+    setLastAction(data.action); // remember what the agent chose
+    const nextLetter = data?.target?.letter ?? currentLetter;
+
+    setTargetLetter(nextLetter);
+  }
+
+  function moveToNextLetter() {
+    const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    const idx = alphabet.indexOf(targetLetter);
+    const next = idx < alphabet.length - 1 ? alphabet[idx + 1] : targetLetter;
+    setTargetLetter(next);
+  }
+
+  async function sendFeedbackToRL({
+    prevLetter,
+    nextMastery,
+    reward,
+  }: {
+    prevLetter: string;
+    nextMastery: number;
+    reward: number;
+  }) {
+    await fetch(`${API}/alphabet/feedback`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        state_key: stateKeyRef.current,
+        action: lastAction || "practice_current",
+        reward,
+        next_state: { letter: prevLetter, mastery_level: nextMastery },
+      }),
+    });
+  }
+
+  // --- Shared updater used by both auto-check and manual RL next buttons ---
+  const applyAttemptAndAdvance = async (isCorrect: boolean) => {
+    setAttempts((a) => a + 1);
+    if (isCorrect) setScore((s) => s + 1);
+
+    const prevLetter = targetLetter;
+    const prevMastery = masteryMap[prevLetter] || 0;
+    const nextMastery = isCorrect ? Math.min(2, prevMastery + 1) : prevMastery;
+
+    setMasteryMap((m) => ({ ...m, [prevLetter]: nextMastery }));
+    setRecentHistory((h) => [...h, prevLetter].slice(-8));
+
+    const reward = rewardFromAttempt(isCorrect);
+    await sendFeedbackToRL({ prevLetter, nextMastery, reward });
+    await getNextFromRL(prevLetter);
+  };
+
+  // Triggered by the main "Check Answer" button using live model prediction
+  const checkAnswer = async () => {
+    const isCorrect = currentPrediction === targetLetter && confidence > 70;
+    await applyAttemptAndAdvance(isCorrect);
+  };
+
+  // --- NEW: explicit RL-next buttons ---
+  const nextRLCorrect = async () => {
+    await applyAttemptAndAdvance(true);
+  };
+
+  const nextRLIncorrect = async () => {
+    await applyAttemptAndAdvance(false);
   };
 
   const resetPractice = () => {
@@ -54,6 +141,10 @@ export default function Practice() {
     setAttempts(0);
     setCurrentPrediction("");
     setConfidence(0);
+    setMasteryMap(
+      Object.fromEntries("ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").map((l) => [l, 0]))
+    );
+    setRecentHistory([]);
   };
 
   return (
@@ -112,9 +203,7 @@ export default function Practice() {
                     Camera Practice
                     <div className="flex space-x-2">
                       {!cameraActive ? (
-                        <Button onClick={startCamera}>
-                          Start Camera
-                        </Button>
+                        <Button onClick={startCamera}>Start Camera</Button>
                       ) : (
                         <Button onClick={stopCamera} variant="destructive">
                           Stop Camera
@@ -124,15 +213,10 @@ export default function Practice() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="relative rounded-lg overflow-hidden bg-slate-100" style={{ aspectRatio: '4/3' }}>
+                  <div className="relative rounded-lg overflow-hidden bg-slate-100" style={{ aspectRatio: "4/3" }}>
                     {cameraActive ? (
                       <>
-                        <HandDetection
-                          onPrediction={handlePrediction}
-                          isActive={cameraActive}
-                          width={640}
-                          height={480}
-                        />
+                        <HandDetection onPrediction={handlePrediction} isActive={cameraActive} width={640} height={480} />
 
                         {/* Overlay for hand detection visualization */}
                         <div className="absolute top-4 left-4 bg-black/70 text-white p-3 rounded-lg">
@@ -145,18 +229,14 @@ export default function Practice() {
                             </span>
                           </div>
                           {confidence > 70 && currentPrediction === targetLetter && (
-                            <div className="text-xs mt-1 text-green-400 font-bold">
-                              ✓ Correct!
-                            </div>
+                            <div className="text-xs mt-1 text-green-400 font-bold">✓ Correct!</div>
                           )}
                         </div>
 
                         {/* Center guide overlay */}
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                           <div className="border-2 border-dashed border-white/50 rounded-lg w-80 h-60 flex items-center justify-center">
-                            <span className="text-white/70 text-sm bg-black/30 px-2 py-1 rounded">
-                              Position your hand here
-                            </span>
+                            <span className="text-white/70 text-sm bg-black/30 px-2 py-1 rounded">Position your hand here</span>
                           </div>
                         </div>
                       </>
@@ -185,12 +265,8 @@ export default function Practice() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-center">
-                    <div className="text-6xl font-bold text-blue-600 mb-4">
-                      {targetLetter}
-                    </div>
-                    <p className="text-slate-600 mb-4">
-                      Show the ASL sign for letter "{targetLetter}"
-                    </p>
+                    <div className="text-6xl font-bold text-blue-600 mb-4">{targetLetter}</div>
+                    <p className="text-slate-600 mb-4">Show the ASL sign for letter "{targetLetter}"</p>
 
                     <TabsContent value="reference" className="mt-4">
                       <div className="bg-slate-100 h-32 rounded-lg flex items-center justify-center mb-4">
@@ -203,6 +279,7 @@ export default function Practice() {
                       </div>
                     </TabsContent>
 
+                    {/* Main check button using the live detector */}
                     <Button
                       onClick={checkAnswer}
                       className="w-full"
@@ -211,12 +288,44 @@ export default function Practice() {
                       {!cameraActive
                         ? "Start Camera First"
                         : confidence < 70
-                          ? `Need ${70 - Math.round(confidence)}% More Confidence`
-                          : currentPrediction !== targetLetter
-                            ? `Showing "${currentPrediction}" - Need "${targetLetter}"`
-                            : "Correct! Click to Continue"
-                      }
+                        ? `Need ${70 - Math.round(confidence)}% More Confidence`
+                        : currentPrediction !== targetLetter
+                        ? `Showing "${currentPrediction}" - Need "${targetLetter}"`
+                        : "Correct! Click to Continue"}
                     </Button>
+
+                    {/* Optional manual next/skip */}
+                    <Button onClick={moveToNextLetter} variant="secondary" className="w-full mt-2">
+                      Next Letter
+                    </Button>
+
+                    {/* Existing RL next without feedback (kept for parity) */}
+                    <Button onClick={() => getNextFromRL(targetLetter)} variant="outline" className="w-full mt-2">
+                      Next (RL)
+                    </Button>
+
+                    {/* NEW: Explicit RL feedback shortcuts */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+                      <Button onClick={nextRLCorrect} className="w-full">Next (RL) — Correct</Button>
+                      <Button onClick={nextRLIncorrect} variant="destructive" className="w-full">
+                        Next (RL) — Incorrect
+                      </Button>
+                    </div>
+
+                    <div className="mt-4 text-sm text-slate-600 text-left">
+                      <div>
+                        <strong>Mastery Level:</strong>{" "}
+                        {masteryMap[targetLetter] === 0 && "Unseen"}
+                        {masteryMap[targetLetter] === 1 && "Practicing"}
+                        {masteryMap[targetLetter] === 2 && "Mastered"}
+                      </div>
+                      <div>
+                        <strong>Recent Letters:</strong> {recentHistory.join(", ") || "None"}
+                      </div>
+                      <div>
+                        <strong>Last RL Action:</strong> {lastAction || "N/A"}
+                      </div>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -238,9 +347,7 @@ export default function Practice() {
                     </div>
                     <div className="flex justify-between">
                       <span>Accuracy:</span>
-                      <span className="font-bold">
-                        {attempts > 0 ? Math.round((score / attempts) * 100) : 0}%
-                      </span>
+                      <span className="font-bold">{attempts > 0 ? Math.round((score / attempts) * 100) : 0}%</span>
                     </div>
                     <div className="flex justify-between">
                       <span>Current Letter:</span>
