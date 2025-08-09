@@ -4,36 +4,51 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 
-const aslAlphabet = [
-  { letter: 'A', medical_word: 'Allergy', description: 'Essential for documenting patient allergies' },
-  { letter: 'B', medical_word: 'Blood', description: 'Critical in emergency and routine care' },
-  { letter: 'C', medical_word: 'Care', description: 'Foundation of all healthcare interactions' },
-  { letter: 'D', medical_word: 'Doctor', description: 'Professional identification' },
-  { letter: 'E', medical_word: 'Emergency', description: 'Urgent situation communication' },
-  { letter: 'F', medical_word: 'Family', description: 'Important for patient support systems' },
-  { letter: 'G', medical_word: 'Good', description: 'Positive reinforcement and status updates' },
-  { letter: 'H', medical_word: 'Help', description: 'Critical for assistance requests' },
-  { letter: 'I', medical_word: 'Injection', description: 'Common medical procedure' },
-  { letter: 'J', medical_word: 'Joint', description: 'Orthopedic and physical therapy' },
-  { letter: 'K', medical_word: 'Kidney', description: 'Important organ system' },
-  { letter: 'L', medical_word: 'Lung', description: 'Respiratory health communication' },
-  { letter: 'M', medical_word: 'Medicine', description: 'Medication management' },
-  { letter: 'N', medical_word: 'Nurse', description: 'Healthcare team identification' },
-  { letter: 'O', medical_word: 'Okay', description: 'Confirmation and comfort' },
-  { letter: 'P', medical_word: 'Pain', description: 'Essential for assessment' },
-  { letter: 'Q', medical_word: 'Question', description: 'Encouraging patient inquiries' },
-  { letter: 'R', medical_word: 'Rest', description: 'Recovery instructions' },
-  { letter: 'S', medical_word: 'Surgery', description: 'Major procedure communication' },
-  { letter: 'T', medical_word: 'Treatment', description: 'Care plan discussions' },
-  { letter: 'U', medical_word: 'Urgent', description: 'Priority level communication' },
-  { letter: 'V', medical_word: 'Vital', description: 'Signs and life-critical information' },
-  { letter: 'W', medical_word: 'Water', description: 'Hydration and basic needs' },
-  { letter: 'X', medical_word: 'X-ray', description: 'Diagnostic imaging' },
-  { letter: 'Y', medical_word: 'Yes', description: 'Affirmative communication' },
-  { letter: 'Z', medical_word: 'Zone', description: 'Area or location specification' }
+type Lesson = {
+  id: "alphabet" | "medical";
+  title: string;
+  subtitle: string;
+  description: string;
+  learned: number;
+  total: number;
+  cta: string;
+  href: string;
+  badge?: string;
+};
+
+const lessons: Lesson[] = [
+  {
+    id: "alphabet",
+    title: "ASL Alphabet",
+    subtitle: "A–Z Fingerspelling",
+    description:
+      "Master the American Sign Language alphabet with guided demos and practice for each letter.",
+    learned: 8, // replace with real progress
+    total: 26,
+    cta: "Open Alphabet Lesson",
+    href: "/lessons/alphabet",
+    badge: "Core"
+  },
+  {
+    id: "medical",
+    title: "Healthcare Terms",
+    subtitle: "Clinical Vocabulary",
+    description:
+      "Learn high-value medical signs like Allergy, Blood, Help, Nurse, Pain, X-ray, and more.",
+    learned: 5, // replace with real progress
+    total: 24,  // adjust to your actual term count
+    cta: "Open Medical Terms Lesson",
+    href: "/lessons/medical",
+    badge: "Applied"
+  }
 ];
 
 export default function Lessons() {
+  // overall progress (simple aggregate)
+  const totalLearned = lessons.reduce((s, l) => s + l.learned, 0);
+  const totalItems = lessons.reduce((s, l) => s + l.total, 0);
+  const overallPct = Math.round((totalLearned / totalItems) * 100);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       {/* Navigation Header */}
@@ -69,86 +84,91 @@ export default function Lessons() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900 mb-4">ASL Alphabet for Healthcare</h1>
+          <h1 className="text-3xl font-bold text-slate-900 mb-4">Lessons</h1>
           <p className="text-lg text-slate-600 mb-6">
-            Learn the American Sign Language alphabet with healthcare-focused vocabulary.
-            Each letter is paired with a medical term to help you build practical skills for patient care.
+            Learn the ASL alphabet first, then apply your skills with high-value healthcare vocabulary.
           </p>
 
-          {/* Progress Bar */}
+          {/* Overall Progress */}
           <div className="bg-white p-6 rounded-lg shadow-sm">
             <div className="flex justify-between items-center mb-2">
               <span className="text-sm font-medium text-slate-700">Overall Progress</span>
-              <span className="text-sm text-slate-600">8/26 letters learned</span>
+              <span className="text-sm text-slate-600">
+                {totalLearned}/{totalItems} items learned
+              </span>
             </div>
-            <Progress value={31} className="w-full" />
+            <Progress value={overallPct} className="w-full" />
           </div>
         </div>
 
-        {/* Lessons Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {aslAlphabet.map((item, index) => (
-            <Card key={item.letter} className="hover:shadow-lg transition-shadow cursor-pointer group">
-              <CardHeader className="pb-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="text-4xl font-bold text-blue-600 bg-blue-50 w-16 h-16 rounded-full flex items-center justify-center">
-                    {item.letter}
-                  </div>
-                  {index < 8 ? (
-                    <Badge variant="default" className="bg-green-100 text-green-800">
-                      Learned
-                    </Badge>
-                  ) : index < 12 ? (
-                    <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
-                      In Progress
-                    </Badge>
-                  ) : (
-                    <Badge variant="outline">
-                      Locked
-                    </Badge>
-                  )}
-                </div>
-                <CardTitle className="text-lg">{item.medical_word}</CardTitle>
-                <CardDescription className="text-sm">
-                  {item.description}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="space-y-3">
-                  {/* ASL Hand Sign Placeholder */}
-                  <div className="bg-slate-100 h-32 rounded-lg flex items-center justify-center group-hover:bg-slate-200 transition-colors">
-                    <div className="text-center text-slate-500">
-                      <svg className="w-8 h-8 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 4V2a1 1 0 011-1h8a1 1 0 011 1v2m-9 6h8m-8 4h8m-8 4h8M5 6v12a1 1 0 001 1h12a1 1 0 001-1V6a1 1 0 00-1-1H5a1 1 0 00-1 1z" />
-                      </svg>
-                      <span className="text-xs">ASL Sign for "{item.letter}"</span>
+        {/* Lessons Grid (just two cards now) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {lessons.map((l) => {
+            const pct = Math.round((l.learned / l.total) * 100);
+            const status =
+              pct === 0 ? "Not started" : pct < 100 ? "In progress" : "Completed";
+
+            return (
+              <Card key={l.id} className="hover:shadow-lg transition-shadow">
+                <CardHeader className="pb-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <CardTitle className="text-xl">{l.title}</CardTitle>
+                      <CardDescription className="text-sm">{l.subtitle}</CardDescription>
                     </div>
+                    {l.badge && (
+                      <Badge variant="secondary" className="whitespace-nowrap">
+                        {l.badge}
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-slate-600">{l.description}</p>
+                </CardHeader>
+                <CardContent className="pt-0 space-y-4">
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-slate-700">{status}</span>
+                      <span className="text-sm text-slate-600">
+                        {l.learned}/{l.total}
+                      </span>
+                    </div>
+                    <Progress value={pct} />
                   </div>
 
-                  <Button
-                    className="w-full"
-                    variant={index < 8 ? "default" : index < 12 ? "secondary" : "outline"}
-                    disabled={index >= 12}
-                  >
-                    {index < 8 ? "Review Lesson" : index < 12 ? "Start Lesson" : "Unlock"}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                  <div className="grid grid-cols-2 gap-3">
+                    <Link href={l.href}>
+                      <Button className="w-full">{l.cta}</Button>
+                    </Link>
+                    {/* Secondary actions */}
+                    {l.id === "alphabet" ? (
+                      <Link href="/practice?mode=alphabet">
+                        <Button className="w-full" variant="outline">
+                          Practice
+                        </Button>
+                      </Link>
+                    ) : (
+                      <Link href="/practice?mode=medical">
+                        <Button className="w-full" variant="outline">
+                          Practice
+                        </Button>
+                      </Link>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
 
         {/* Next Steps */}
         <div className="mt-12 bg-white rounded-lg shadow-sm p-8">
           <h2 className="text-2xl font-bold text-slate-900 mb-4">Ready to Practice?</h2>
           <p className="text-slate-600 mb-6">
-            Once you've learned a few letters, try our interactive camera practice to test your skills in real-time.
+            Start with the alphabet or jump into healthcare terms, then try our interactive camera practice.
           </p>
           <div className="flex space-x-4">
             <Link href="/practice">
-              <Button size="lg">
-                Try Camera Practice
-              </Button>
+              <Button size="lg">Try Camera Practice</Button>
             </Link>
             <Link href="/quiz">
               <Button size="lg" variant="outline">

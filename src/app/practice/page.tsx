@@ -18,7 +18,7 @@ export default function Practice() {
   const [score, setScore] = useState(0);
   const [attempts, setAttempts] = useState(0);
   // RL backend base URL
-  const API = "http://localhost:8000";
+  const API = "http://10.52.206.87:8000/";
 
   // --- RL state ---
   const [masteryMap, setMasteryMap] = useState<Record<string, number>>(
