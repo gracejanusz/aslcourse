@@ -38,7 +38,7 @@ const lessons: Lesson[] = [
     learned: 5, // replace with real progress
     total: 24,  // adjust to your actual term count
     cta: "Open Medical Terms Lesson",
-    href: "/lessons/medical",
+    href: "/lessons/emergency",
     badge: "Applied"
   }
 ];

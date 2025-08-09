@@ -10,10 +10,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import HandDetection from "@/components/HandDetection";
 
 export default function Practice() {
+  const SIGNS = ["Emergency", "Arm", "Hurt"] as const;
+
   const [cameraActive, setCameraActive] = useState(false);
   const [currentPrediction, setCurrentPrediction] = useState<string>("");
   const [confidence, setConfidence] = useState<number>(0);
-  const [targetLetter, setTargetLetter] = useState<string>("A");
+  const [targetLetter, setTargetLetter] = useState<string>(SIGNS[0]); // now a sign
   const [practiceMode, setPracticeMode] = useState<"reference" | "blind">("reference");
   const [score, setScore] = useState(0);
   const [attempts, setAttempts] = useState(0);
@@ -22,20 +24,18 @@ export default function Practice() {
 
   // --- RL state ---
   const [masteryMap, setMasteryMap] = useState<Record<string, number>>(
-    Object.fromEntries("ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").map((l) => [l, 0]))
+    Object.fromEntries(SIGNS.map((l) => [l, 0]))
   );
   const [recentHistory, setRecentHistory] = useState<string[]>([]);
-  const stateKeyRef = useRef<string>("A:0");
+  const stateKeyRef = useRef<string>(`${SIGNS[0]}:0`);
   const [lastAction, setLastAction] = useState<string>("practice_current");
 
-  const handlePrediction = (letter: string, confidence: number) => {
-    setCurrentPrediction(letter);
-    setConfidence(confidence);
+  const handlePrediction = (label: string, conf: number) => {
+    setCurrentPrediction(label);
+    setConfidence(conf);
   };
 
-  const startCamera = () => {
-    setCameraActive(true);
-  };
+  const startCamera = () => setCameraActive(true);
 
   const stopCamera = () => {
     setCameraActive(false);
@@ -44,7 +44,7 @@ export default function Practice() {
   };
 
   useEffect(() => {
-    getNextFromRL("A");
+    getNextFromRL(SIGNS[0]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -70,15 +70,13 @@ export default function Practice() {
     const data = await res.json();
     stateKeyRef.current = data.state_key;
     setLastAction(data.action); // remember what the agent chose
-    const nextLetter = data?.target?.letter ?? currentLetter;
-
-    setTargetLetter(nextLetter);
+    const next = data?.target?.letter ?? currentLetter;
+    setTargetLetter(next);
   }
 
   function moveToNextLetter() {
-    const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-    const idx = alphabet.indexOf(targetLetter);
-    const next = idx < alphabet.length - 1 ? alphabet[idx + 1] : targetLetter;
+    const idx = SIGNS.indexOf(targetLetter);
+    const next = idx < SIGNS.length - 1 ? SIGNS[idx + 1] : targetLetter; // keep last if at end (matches your original behavior)
     setTargetLetter(next);
   }
 
@@ -136,14 +134,12 @@ export default function Practice() {
   };
 
   const resetPractice = () => {
-    setTargetLetter("A");
+    setTargetLetter(SIGNS[0]);
     setScore(0);
     setAttempts(0);
     setCurrentPrediction("");
     setConfidence(0);
-    setMasteryMap(
-      Object.fromEntries("ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").map((l) => [l, 0]))
-    );
+    setMasteryMap(Object.fromEntries(SIGNS.map((l) => [l, 0])));
     setRecentHistory([]);
   };
 
@@ -184,7 +180,7 @@ export default function Practice() {
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-slate-900 mb-4">AI-Powered ASL Practice</h1>
           <p className="text-lg text-slate-600">
-            Practice your ASL alphabet with real-time camera feedback. Our AI will analyze your hand signs and provide instant feedback.
+            Practice key ASL signs with real-time camera feedback. Our AI will analyze your hand signs and provide instant guidance.
           </p>
         </div>
 
@@ -224,7 +220,12 @@ export default function Practice() {
                             Detected: <span className="font-bold text-green-400">{currentPrediction || "None"}</span>
                           </div>
                           <div className="text-xs mt-1">
-                            Confidence: <span className={confidence > 70 ? "text-green-400" : confidence > 40 ? "text-yellow-400" : "text-red-400"}>
+                            Confidence:{" "}
+                            <span
+                              className={
+                                confidence > 70 ? "text-green-400" : confidence > 40 ? "text-yellow-400" : "text-red-400"
+                              }
+                            >
                               {confidence.toFixed(1)}%
                             </span>
                           </div>
@@ -244,7 +245,12 @@ export default function Practice() {
                       <div className="h-96 flex items-center justify-center text-slate-500">
                         <div className="text-center">
                           <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                            />
                           </svg>
                           <p className="text-lg font-medium">Click "Start Camera" to begin practice</p>
                           <p className="text-sm text-slate-400 mt-2">Make sure to allow camera permissions</p>
@@ -265,8 +271,8 @@ export default function Practice() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-center">
-                    <div className="text-6xl font-bold text-blue-600 mb-4">{targetLetter}</div>
-                    <p className="text-slate-600 mb-4">Show the ASL sign for letter "{targetLetter}"</p>
+                    <div className="text-4xl sm:text-5xl md:text-6xl font-bold text-blue-600 mb-4">{targetLetter}</div>
+                    <p className="text-slate-600 mb-4">Show the ASL sign for “{targetLetter}”.</p>
 
                     <TabsContent value="reference" className="mt-4">
                       <div className="bg-slate-100 h-32 rounded-lg flex items-center justify-center mb-4">
@@ -274,7 +280,7 @@ export default function Practice() {
                           <svg className="w-8 h-8 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 4V2a1 1 0 011-1h8a1 1 0 011 1v2m-9 6h8m-8 4h8m-8 4h8M5 6v12a1 1 0 001 1h12a1 1 0 001-1V6a1 1 0 00-1-1H5a1 1 0 00-1 1z" />
                           </svg>
-                          Reference image for "{targetLetter}"
+                          Reference image for “{targetLetter}”
                         </span>
                       </div>
                     </TabsContent>
@@ -290,13 +296,13 @@ export default function Practice() {
                         : confidence < 70
                         ? `Need ${70 - Math.round(confidence)}% More Confidence`
                         : currentPrediction !== targetLetter
-                        ? `Showing "${currentPrediction}" - Need "${targetLetter}"`
+                        ? `Showing “${currentPrediction}” — Need “${targetLetter}”`
                         : "Correct! Click to Continue"}
                     </Button>
 
                     {/* Optional manual next/skip */}
                     <Button onClick={moveToNextLetter} variant="secondary" className="w-full mt-2">
-                      Next Letter
+                      Next Sign
                     </Button>
 
                     {/* Existing RL next without feedback (kept for parity) */}
@@ -320,7 +326,7 @@ export default function Practice() {
                         {masteryMap[targetLetter] === 2 && "Mastered"}
                       </div>
                       <div>
-                        <strong>Recent Letters:</strong> {recentHistory.join(", ") || "None"}
+                        <strong>Recent Signs:</strong> {recentHistory.join(", ") || "None"}
                       </div>
                       <div>
                         <strong>Last RL Action:</strong> {lastAction || "N/A"}
@@ -350,7 +356,7 @@ export default function Practice() {
                       <span className="font-bold">{attempts > 0 ? Math.round((score / attempts) * 100) : 0}%</span>
                     </div>
                     <div className="flex justify-between">
-                      <span>Current Letter:</span>
+                      <span>Current Sign:</span>
                       <span className="font-bold text-blue-600">{targetLetter}</span>
                     </div>
                     <Button onClick={resetPractice} variant="outline" className="w-full">
@@ -369,7 +375,7 @@ export default function Practice() {
                   <div className="space-y-2 text-sm text-slate-600">
                     <p>1. Click "Start Camera" and allow permissions</p>
                     <p>2. Position your hand in the guide box</p>
-                    <p>3. Form the ASL sign for the target letter</p>
+                    <p>3. Form the ASL sign for the target item</p>
                     <p>4. Wait for confidence to reach 70%+</p>
                     <p>5. Click the button when it turns green</p>
                   </div>
