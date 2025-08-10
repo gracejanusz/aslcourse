@@ -187,7 +187,6 @@ export default function HandDetection({
         lastLandmarksRef.current = landmarks;
 
         drawing.drawLandmarks(landmarks);
-        drawing.drawConnectors(landmarks);
       } else {
         lastLandmarksRef.current = null;
       }

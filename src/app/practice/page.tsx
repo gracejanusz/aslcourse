@@ -1,5 +1,6 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
+import Image from "next/image";
 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -269,15 +270,29 @@ export default function Practice() {
                     <p className="text-slate-600 mb-4">Show the ASL sign for letter "{targetLetter}"</p>
 
                     <TabsContent value="reference" className="mt-4">
-                      <div className="bg-slate-100 h-32 rounded-lg flex items-center justify-center mb-4">
-                        <span className="text-slate-500 text-center">
-                          <svg className="w-8 h-8 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 4V2a1 1 0 011-1h8a1 1 0 011 1v2m-9 6h8m-8 4h8m-8 4h8M5 6v12a1 1 0 001 1h12a1 1 0 001-1V6a1 1 0 00-1-1H5a1 1 0 00-1 1z" />
-                          </svg>
-                          Reference image for "{targetLetter}"
-                        </span>
-                      </div>
-                    </TabsContent>
+                    <div className="relative bg-slate-100 rounded-lg overflow-hidden w-full" style={{ aspectRatio: "4 / 3" }}>
+                    <Image
+                      key={targetLetter} // reset on letter change so onError re-runs if needed
+                      src={`/asl_letters/${targetLetter}.webp`}
+                      alt={`ASL reference for letter ${targetLetter}`}
+                      fill
+                      className="object-contain"
+                      sizes="(max-width: 1024px) 100vw, 66vw"
+                      priority
+                      onError={(e) => {
+                        // Optional: fall back to PNG or hide if webp missing
+                        const img = e.currentTarget as unknown as HTMLImageElement & { src: string };
+                        if (!img.src.endsWith(".png")) {
+                          img.src = `/asl_letters/${targetLetter}.png`;
+                        }
+                      }}
+                    />
+                  </div>
+                  <p className="text-xs text-slate-500 mt-2 text-center">
+                    Reference image for “{targetLetter}”
+                  </p>
+                </TabsContent>
+
 
                     {/* Main check button using the live detector */}
                     <Button

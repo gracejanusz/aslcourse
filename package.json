@@ -24,7 +24,7 @@
         "dotenv": "^17.2.1",
         "freestyle-sandboxes": "^0.0.93",
         "lucide-react": "^0.475.0",
-        "next": "^15.3.2",
+        "next": "^15.4.6",
         "react": "^18.3.1",
         "react-dom": "^18.3.1",
         "same-runtime": "^0.0.1",
